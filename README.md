@@ -10,7 +10,7 @@ marked as known and which labels can change.
 Formally, the output of the algorithm is an array `labels` such that
 `np.all((labels[can_change == 0] == init_labels[can_change == 0]))` is `True`.
 
-Can be installed via
+Can be installed via (requires Python>=3.7)
 ```bash
 pip install ConstrainedKMeans
 ```
