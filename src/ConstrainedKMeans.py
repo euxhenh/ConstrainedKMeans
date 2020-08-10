@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.spatial.distance import cdist
+from bidict import bidict
 
 FORMAT = '%(levelname)s:%(name)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -92,16 +93,30 @@ class ConstrainedKMeans:
             Only init_labels[can_change == 0] are considered. The rest of the
             labels are ignored.
         """
+        if self.n_clusters > x.shape[0]:
+            raise ValueError("There are more clusters than points.")
+
         can_change = can_change.astype(int)
         init_labels = init_labels.astype(int)
+        temp_init_labels = init_labels + np.max(init_labels) + 1
+
+        unq_no_change_labels = np.unique(init_labels[can_change == 0])
+
+        # Dicionary that transforms the labels into categoricals
+        self.keys = bidict(
+            {i: unq_no_change_labels[i] for i in range(len(unq_no_change_labels))})
+        for unq_label in unq_no_change_labels:
+            temp_init_labels[init_labels ==
+                             unq_label] = self.keys.inverse[unq_label]
+
+        init_labels = temp_init_labels
+        unq_no_change_labels = np.unique(init_labels[can_change == 0])
+
         self.can_change = can_change
         self.init_labels = init_labels
 
-        unq_labels = np.unique(init_labels)
-
         # Initialize with zeros
         self.centroids = np.zeros((self.n_clusters, x.shape[1]))
-        unq_no_change_labels = np.unique(init_labels[can_change == 0])
 
         # In case no constraints are passed, initialize all centroids at random.
         if unq_no_change_labels.size == 0:
@@ -113,10 +128,6 @@ class ConstrainedKMeans:
         if np.all((can_change == 0)):
             self.no_change = True
             return
-
-        # Ensure init_labels are in the right range, ( >= 0 ... < n_clusters)
-        assert(np.max(unq_no_change_labels) < self.n_clusters)
-        assert(np.min(unq_no_change_labels) >= 0)
 
         # Initialize centroids by the mean of the constrained points
         for unq_label in unq_no_change_labels:
@@ -219,7 +230,7 @@ class ConstrainedKMeans:
             i = 0  # step counter
 
             if self.no_change:
-                self.labels = init_labels
+                self.labels = self.init_labels
                 self.logger.info("No free points found.")
                 return
 
@@ -269,5 +280,16 @@ class ConstrainedKMeans:
             labels are ignored.
         """
         self.fit(x, can_change, init_labels)
-        return self.labels
+        return self.get_labels()
 
+    def get_labels(self):
+        """
+        Convert the categorical labels back to their original values.
+        Use this function if you wish to get cluster labels from the object.
+        """
+        converted_labels = self.labels.copy()
+        unq_labels = np.unique(self.labels)
+        for key in self.keys:
+            if key in unq_labels:
+                converted_labels[self.labels == key] = self.keys[key]
+        return converted_labels
