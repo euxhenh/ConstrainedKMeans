@@ -26,7 +26,7 @@ setuptools.setup(
     name="ConstrainedKMeans",
     package_dir={'ConstrainedKMeans': 'src'},
     packages=['ConstrainedKMeans'],
-    version="1.0",
+    version="1.2",
     author="Euxhen Hasanaj",
     author_email="ehasanaj@cs.cmu.edu",
     description="A constrained KMeans algorithm.",

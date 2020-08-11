@@ -98,6 +98,9 @@ class ConstrainedKMeans:
 
         can_change = can_change.astype(int)
         init_labels = init_labels.astype(int)
+        if (not np.all(init_labels >= 0)):
+            raise ValueError("Negative values found in init_labels.")
+
         temp_init_labels = init_labels + np.max(init_labels) + 1
 
         unq_no_change_labels = np.unique(init_labels[can_change == 0])
@@ -106,8 +109,8 @@ class ConstrainedKMeans:
         self.keys = bidict(
             {i: unq_no_change_labels[i] for i in range(len(unq_no_change_labels))})
         for unq_label in unq_no_change_labels:
-            temp_init_labels[init_labels ==
-                             unq_label] = self.keys.inverse[unq_label]
+            temp_init_labels[(init_labels ==
+                              unq_label) & (can_change == 0)] = self.keys.inverse[unq_label]
 
         init_labels = temp_init_labels
         unq_no_change_labels = np.unique(init_labels[can_change == 0])
@@ -287,9 +290,17 @@ class ConstrainedKMeans:
         Convert the categorical labels back to their original values.
         Use this function if you wish to get cluster labels from the object.
         """
-        converted_labels = self.labels.copy()
+        # Hack: convert to negative so that there are no collisions
+        converted_labels = -self.labels.copy()
         unq_labels = np.unique(self.labels)
         for key in self.keys:
             if key in unq_labels:
                 converted_labels[self.labels == key] = self.keys[key]
+        new_unq_labels = np.unique(converted_labels)
+        busy_labels = new_unq_labels[new_unq_labels >= 0]
+        free_labels = iter(set(range(len(new_unq_labels))) - set(busy_labels))
+        neg_labels = new_unq_labels[new_unq_labels < 0]
+        for neg_label in neg_labels:
+            converted_labels[converted_labels == neg_label] = next(free_labels)
         return converted_labels
+
